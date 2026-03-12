@@ -5,4 +5,4 @@ pluginManagement {
     }
 }
 
-rootProject.name = "maven-central-publisher"
+rootProject.name = "com.isycat.publishing.gradle.plugin"
