@@ -4,7 +4,7 @@ plugins {
     signing
 }
 
-group = "com.isycat.publishing"
+group = "com.isycat.maven-central-publisher"
 
 repositories {
     mavenCentral()
