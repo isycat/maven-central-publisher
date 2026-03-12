@@ -1,8 +1,11 @@
-name: Reusable Publish Workflow
+name: Reusable Maven Central Publish Workflow
 
 on:
   workflow_call:
     inputs:
+      module:
+        required: true
+        type: string
       version:
         required: true
         type: string
@@ -24,8 +27,6 @@ jobs:
   check_branch:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     outputs:
       is_on_main: ${{ steps.check.outputs.is_on_main }}
     steps:
@@ -47,8 +48,6 @@ jobs:
       ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
        (github.event_name == 'push' && needs.check_branch.outputs.is_on_main == 'true'))
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -71,7 +70,7 @@ jobs:
         run: |
           # Strip 'release-' prefix if present
           CLEAN_VERSION="${RAW_VERSION#release-}"
-          ORG_GRADLE_PROJECT_version="$CLEAN_VERSION" ./gradlew publishAllPublicationsToSonatypeCentralRepository
+          ORG_GRADLE_PROJECT_version="$CLEAN_VERSION" ./gradlew :${{ inputs.module }}:publishAllPublicationsToSonatypeCentralRepository
 
       - name: Finalize deployment on Sonatype Central
         if: success()
@@ -82,18 +81,18 @@ jobs:
         run: |
           # Strip 'release-' prefix if present
           CLEAN_VERSION="${RAW_VERSION#release-}"
-
+          
           # Extract the namespace (groupId) from the project properties
           # We pass the version to ensure successful configuration
-          NAMESPACE=$(ORG_GRADLE_PROJECT_version="$CLEAN_VERSION" ./gradlew properties -q | grep "^group:" | awk '{print $2}')
-
+          NAMESPACE=$(ORG_GRADLE_PROJECT_version="$CLEAN_VERSION" ./gradlew :${{ inputs.module }}:properties -q | grep "^group:" | awk '{print $2}')
+          
           if [ -z "$NAMESPACE" ]; then
             echo "Error: Could not extract namespace (groupId) from project."
             exit 1
           fi
-
+          
           echo "Finalizing deployment for namespace: $NAMESPACE"
-
+          
           # Use the Portal API to signal that the upload is complete
           # This must be done from the same IP as the upload
           curl -v -u "$CENTRAL_USERNAME:$CENTRAL_PASSWORD" \
