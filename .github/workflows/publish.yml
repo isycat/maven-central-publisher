@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       module:
-        required: true
+        required: false
         type: string
       version:
         required: true
@@ -70,7 +70,9 @@ jobs:
         run: |
           # Strip 'release-' prefix if present
           CLEAN_VERSION="${RAW_VERSION#release-}"
-          ORG_GRADLE_PROJECT_version="$CLEAN_VERSION" ./gradlew :${{ inputs.module }}:publishAllPublicationsToSonatypeCentralRepository
+          MODULE="${{ inputs.module }}"
+          PREFIX="${MODULE:+:${MODULE}:}"
+          ORG_GRADLE_PROJECT_version="$CLEAN_VERSION" ./gradlew ${PREFIX}publishAllPublicationsToSonatypeCentralRepository
 
       - name: Finalize deployment on Sonatype Central
         if: success()
@@ -81,10 +83,12 @@ jobs:
         run: |
           # Strip 'release-' prefix if present
           CLEAN_VERSION="${RAW_VERSION#release-}"
+          MODULE="${{ inputs.module }}"
+          PREFIX="${MODULE:+:${MODULE}:}"
           
           # Extract the namespace (groupId) from the project properties
           # We pass the version to ensure successful configuration
-          NAMESPACE=$(ORG_GRADLE_PROJECT_version="$CLEAN_VERSION" ./gradlew :${{ inputs.module }}:properties -q | grep "^group:" | awk '{print $2}')
+          NAMESPACE=$(ORG_GRADLE_PROJECT_version="$CLEAN_VERSION" ./gradlew ${PREFIX}properties -q | grep "^group:" | awk '{print $2}')
           
           if [ -z "$NAMESPACE" ]; then
             echo "Error: Could not extract namespace (groupId) from project."
