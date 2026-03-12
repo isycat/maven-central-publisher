@@ -1,0 +1,100 @@
+name: Reusable Publish Workflow
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      ref:
+        required: true
+        type: string
+    secrets:
+      CENTRAL_USERNAME:
+        required: true
+      CENTRAL_PASSWORD:
+        required: true
+      GPG_PRIVATE_KEY:
+        required: true
+      GPG_PASSPHRASE:
+        required: true
+
+jobs:
+  # Check if the tag push is on the main branch
+  check_branch:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      is_on_main: ${{ steps.check.outputs.is_on_main }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: check
+        run: |
+          if git branch -r --contains ${{ github.sha }} | grep -q "origin/main"; then
+            echo "is_on_main=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_on_main=false" >> $GITHUB_OUTPUT
+          fi
+
+  publish:
+    needs: [check_branch]
+    if: |
+      always() &&
+      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'push' && needs.check_branch.outputs.is_on_main == 'true'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Publish to Maven Central
+        env:
+          RAW_VERSION: ${{ inputs.version }}
+          ORG_GRADLE_PROJECT_centralUsername: ${{ secrets.CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_centralPassword: ${{ secrets.CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_gpgKey: ${{ secrets.GPG_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_gpgPassphrase: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          # Strip 'release-' prefix if present
+          CLEAN_VERSION="${RAW_VERSION#release-}"
+          ORG_GRADLE_PROJECT_version="$CLEAN_VERSION" ./gradlew publishAllPublicationsToSonatypeCentralRepository
+
+      - name: Finalize deployment on Sonatype Central
+        if: success()
+        env:
+          RAW_VERSION: ${{ inputs.version }}
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+        run: |
+          # Strip 'release-' prefix if present
+          CLEAN_VERSION="${RAW_VERSION#release-}"
+
+          # Extract the namespace (groupId) from the project properties
+          # We pass the version to ensure successful configuration
+          NAMESPACE=$(ORG_GRADLE_PROJECT_version="$CLEAN_VERSION" ./gradlew properties -q | grep "^group:" | awk '{print $2}')
+
+          if [ -z "$NAMESPACE" ]; then
+            echo "Error: Could not extract namespace (groupId) from project."
+            exit 1
+          fi
+
+          echo "Finalizing deployment for namespace: $NAMESPACE"
+
+          # Use the Portal API to signal that the upload is complete
+          # This must be done from the same IP as the upload
+          curl -v -u "$CENTRAL_USERNAME:$CENTRAL_PASSWORD" \
+            -X POST "https://ossrh-staging-api.central.sonatype.com/manual/upload/defaultRepository/$NAMESPACE"
