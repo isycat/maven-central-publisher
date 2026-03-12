@@ -10,7 +10,7 @@ In your module's `build.gradle.kts`:
 
 ```kotlin
 plugins {
-    id("com.isycat.publishing") version "<version>"
+    id("com.isycat.maven-central-publisher") version "<version>"
 }
 ```
 
