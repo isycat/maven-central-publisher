@@ -12,6 +12,9 @@ on:
       ref:
         required: true
         type: string
+      submodules:
+        required: false
+        type: string
     secrets:
       CENTRAL_USERNAME:
         required: true
@@ -53,6 +56,18 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
+
+      - name: Initialize submodules
+        if: ${{ inputs.submodules != '' }}
+        run: |
+          # Read submodules line-by-line or space-separated, robustly
+          echo "${{ inputs.submodules }}" | xargs -n 1 | while read -r sub; do
+            if [ -n "$sub" ]; then
+              echo "Initializing submodule: $sub"
+              git submodule sync -- "$sub"
+              git submodule update --init --depth 1 -- "$sub"
+            fi
+          done
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4

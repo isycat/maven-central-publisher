@@ -116,6 +116,23 @@ jobs:
 
 ```
 
+### Git Submodules
+
+If your project relies on Git submodules, provide their names in the `submodules` input as a YAML multi-line string:
+
+```yaml
+jobs:
+  publish:
+    uses: isycat/maven-central-publisher/.github/workflows/publish.yml@v1
+    with:
+      submodules: |
+        ktox-annotations
+        some-other-submodule
+      version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+      ref: ${{ github.event_name == 'workflow_dispatch' && (inputs.commit || 'main') || github.ref_name }}
+    secrets: inherit
+```
+
 ### Workflow inputs
 
 | Input | Required | Description |
@@ -123,4 +140,5 @@ jobs:
 | `version` | ✅ | Version string (e.g. `1.2.3` or `release-1.2.3`; the `release-` prefix is stripped automatically) |
 | `ref` | ✅ | Git ref (branch, tag, or SHA) to check out |
 | `module` | ❌ | Gradle subproject name. When omitted, tasks run on the root project |
+| `submodules` | ❌ | Multi-line list of Git submodule names to initialize (one per line or space-separated) |
 
