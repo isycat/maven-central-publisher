@@ -129,6 +129,14 @@ configure<PublishingExtension> {
                 }
             }
         }
+
+        // Ensure each publish task depends on its corresponding sign task (required when
+        // java-gradle-plugin adds extra plugin marker publications whose publish tasks may not
+        // auto-wire to the signing tasks created for them)
+        tasks.withType<org.gradle.api.publish.maven.tasks.PublishToMavenRepository>().configureEach {
+            val capitalizedPublicationName = publication.name.replaceFirstChar { it.uppercase() }
+            dependsOn(tasks.matching { it.name == "sign${capitalizedPublicationName}Publication" })
+        }
     }
 
     repositories {
