@@ -129,6 +129,12 @@ configure<PublishingExtension> {
                 }
             }
         }
+
+        // Ensure all publish tasks depend on all sign tasks (required when java-gradle-plugin
+        // adds extra plugin marker publications whose publish tasks may not auto-wire to signing)
+        tasks.withType<org.gradle.api.publish.maven.tasks.PublishToMavenRepository>().configureEach {
+            dependsOn(tasks.withType<org.gradle.plugins.signing.Sign>())
+        }
     }
 
     repositories {
