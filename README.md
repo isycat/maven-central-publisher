@@ -55,17 +55,31 @@ The reusable workflow `.github/workflows/publish.yml` handles building, signing,
 ### Single-project (no submodules)
 
 ```yaml
+name: Publish my thing
+
+on:
+  push:
+    tags:
+      - 'release-[0-9]+.[0-9]+.[0-9]+'
+      - 'release-[0-9]+.[0-9]+.[0-9]+-SNAPSHOT'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g. 1.0.0)'
+        required: true
+        type: string
+      commit:
+        description: 'Commit SHA to publish from (optional, defaults to main)'
+        required: false
+        type: string
+
 jobs:
   publish:
-    uses: isycat/maven-central-publisher/.github/workflows/publish.yml@main
+    uses: isycat/maven-central-publisher/.github/workflows/publish.yml@v1
     with:
-      version: "1.2.3"
-      ref: "main"
-    secrets:
-      CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
-      CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
-      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+      ref: ${{ github.event_name == 'workflow_dispatch' && (inputs.commit || 'main') || github.ref_name }}
+    secrets: inherit
 ```
 
 ### Multi-module project (publish a specific submodule)
@@ -73,18 +87,33 @@ jobs:
 Pass the `module` input with the Gradle subproject name:
 
 ```yaml
+name: Publish yamllint-maven-plugin
+
+on:
+  push:
+    tags:
+      - 'release-[0-9]+.[0-9]+.[0-9]+'
+      - 'release-[0-9]+.[0-9]+.[0-9]+-SNAPSHOT'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g. 1.0.0)'
+        required: true
+        type: string
+      commit:
+        description: 'Commit SHA to publish from (optional, defaults to main)'
+        required: false
+        type: string
+
 jobs:
   publish:
-    uses: isycat/maven-central-publisher/.github/workflows/publish.yml@main
+    uses: isycat/maven-central-publisher/.github/workflows/publish.yml@v1
     with:
-      version: "1.2.3"
-      ref: "main"
-      module: "my-library-core"   # runs :my-library-core:publishAllPublicationsToSonatypeCentralRepository
-    secrets:
-      CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
-      CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
-      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      module: yamllint-maven-plugin
+      version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+      ref: ${{ github.event_name == 'workflow_dispatch' && (inputs.commit || 'main') || github.ref_name }}
+    secrets: inherit
+
 ```
 
 ### Workflow inputs
@@ -94,21 +123,4 @@ jobs:
 | `version` | ✅ | Version string (e.g. `1.2.3` or `release-1.2.3`; the `release-` prefix is stripped automatically) |
 | `ref` | ✅ | Git ref (branch, tag, or SHA) to check out |
 | `module` | ❌ | Gradle subproject name. When omitted, tasks run on the root project |
-
-### Triggering automatically on release tags
-
-```yaml
-on:
-  push:
-    tags:
-      - 'release-[0-9]+\.[0-9]+\.[0-9]+'
-
-jobs:
-  publish:
-    uses: isycat/maven-central-publisher/.github/workflows/publish.yml@main
-    with:
-      version: ${{ github.ref_name }}
-      ref: ${{ github.ref_name }}
-    secrets: inherit
-```
 
