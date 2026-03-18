@@ -17,6 +17,8 @@ plugins {
 ### 2. Configure publishing metadata
 
 ```kotlin
+version = properties["version"] ?: "0.0.1"
+
 mavenCentralPublishing {
     groupId = "com.example"
     artifactId = "my-library"
